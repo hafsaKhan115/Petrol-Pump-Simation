@@ -37,6 +37,7 @@ ROAD_X        = -200    # X lane centre for approaching vehicles
 PUMP_STOP_Y   = -130    # where front vehicle stops (in front of pump)
 VEHICLE_GAP   =  200    # minimum gap between queued vehicles (world units)
 
+
 # ─── Simulation state ─────────────────────────────────────────────────────────
 last_time        = 0.0
 spawn_timer      = 0.0
@@ -58,7 +59,9 @@ def make_vehicle():
         "color"  : color_body,
         "state"  : "moving",   # moving | fuelling | leaving
         "fuel_t" : 0.0,
-        "fuel_pct": 0.0,  # Add this line
+        "fuel_pct": 0.0,  
+        "is_exited": False,  
+        "exit_anim": 0.0  
     }
 
 
@@ -75,6 +78,7 @@ def draw_box(x1,y1,z1, x2,y2,z2):
     glVertex3f(x1,y1,z1); glVertex3f(x1,y2,z1); glVertex3f(x1,y2,z2); glVertex3f(x1,y1,z2)
     glVertex3f(x2,y1,z1); glVertex3f(x2,y2,z1); glVertex3f(x2,y2,z2); glVertex3f(x2,y1,z2)
     glEnd()
+
 
 
 def draw_manual_solid_cylinder(br, tr, h, sl, lw=2.0):
@@ -120,6 +124,68 @@ def draw_text_large(x, y, text, color=(1,1,1)):
         glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, ord(ch))
     _exit_ortho()
 
+def draw_human(color=(0.84, 0.63, 0.43), is_standing=True):
+    """Draws a human with professional attire: dress shirt, trousers, and hair."""
+    quad = gluNewQuadric()
+    glPushMatrix()
+    
+    
+    # ─── 1. Trousers (Legs & Lower Torso) ──────────────────
+    # Dark grey/black slacks
+    glColor3f(0.15, 0.15, 0.15)
+    if is_standing:
+        draw_box(-12, -8, 0, -2, 8, 45)  # Left Leg
+        draw_box(2, -8, 0, 12, 8, 45)   # Right Leg
+        draw_box(-12, -8, 45, 12, 8, 55) # Hips/Lower Torso
+    else:
+        # Seating position (bent at knees)
+        draw_box(-12, -30, 35, -2, 8, 50) 
+        draw_box(2, -30, 35, 12, 8, 50)
+        draw_box(-12, -10, 35, 12, 8, 55)
+
+    # ─── 2. Professional Shirt (Torso) ──────────────────────
+    # Light blue or white dress shirt
+    glColor3f(0.7, 0.8, 0.9) 
+    draw_box(-15, -10, 55, 15, 10, 95)
+    
+    # Collar detail (slightly darker blue)
+    glColor3f(0.5, 0.6, 0.8)
+    draw_box(-6, -11, 92, 6, -6, 98)
+
+    # ─── 3. Head & Hair ─────────────────────────────────────
+    # Neck
+    glColor3f(color[0], color[1], color[2])
+    glPushMatrix()
+    glTranslatef(0, 0, 95)
+    draw_manual_solid_cylinder(5, 5, 10, 8) 
+    glPopMatrix()
+
+    # Face/Head
+    glPushMatrix()
+    glTranslatef(0, 0, 112)
+    gluSphere(quad, 14, 16, 16)
+    
+    # Hair (Dark Brown/Black layer on top)
+    glColor3f(0.1, 0.05, 0.02)
+    glPushMatrix()
+    glTranslatef(0, 0, 4) # Position hair on top of head
+    glScalef(1.1, 1.1, 0.8) # Flatten the sphere to look like a hair style
+    gluSphere(quad, 13, 12, 12)
+    glPopMatrix()
+    glPopMatrix()
+
+    # ─── 4. Arms & Sleeves ──────────────────────────────────
+    # Upper sleeves (Shirt color)
+    glColor3f(0.7, 0.8, 0.9)
+    draw_box(-22, -8, 70, -15, 8, 92) # Left Upper Arm
+    draw_box(15, -8, 70, 22, 8, 92)  # Right Upper Arm
+    
+    # Hands (Skin color)
+    glColor3f(color[0], color[1], color[2])
+    draw_box(-21, -7, 60, -16, 7, 70) # Left Hand
+    draw_box(16, -7, 60, 21, 7, 70)  # Right Hand
+
+    glPopMatrix()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  GROUND
@@ -132,13 +198,13 @@ def draw_ground():
     glEnd()
 
     # Concrete pad
-    glColor3f(0.70,0.70,0.70)
+    set_color_lit(0.70,0.70,0.70)
     glBegin(GL_QUADS)
     glVertex3f(-CANOPY_W-35,-CANOPY_D-35,0); glVertex3f(CANOPY_W+35,-CANOPY_D-35,0)
     glVertex3f(CANOPY_W+35,CANOPY_D+35,0);   glVertex3f(-CANOPY_W-35,CANOPY_D+35,0)
     glEnd()
 
-    glColor3f(0.76,0.76,0.76)
+    set_color_lit(0.76,0.76,0.76)
     glBegin(GL_QUADS)
     glVertex3f(-CANOPY_W+15,-CANOPY_D+15,0.5); glVertex3f(CANOPY_W-15,-CANOPY_D+15,0.5)
     glVertex3f(CANOPY_W-15,CANOPY_D-15,0.5);   glVertex3f(-CANOPY_W+15,CANOPY_D-15,0.5)
@@ -161,7 +227,7 @@ def draw_ground():
         glEnd()
 
     # Road centre dashes
-    glColor3f(0.82,0.82,0.10)
+    set_color_lit(0.82,0.82,0.10)
     for seg in range(6):
         ys = -2000+seg*260
         glBegin(GL_QUADS)
@@ -170,7 +236,7 @@ def draw_ground():
         glEnd()
 
     # Curbs
-    glColor3f(0.92,0.92,0.92)
+    set_color_lit(0.92,0.92,0.92)
     cw=10; cy1=CANOPY_D+35; cx1=CANOPY_W+35
     draw_box(-cx1-cw,-cy1-cw,0, cx1+cw,-cy1,8)
     draw_box(-cx1-cw,cy1,0,     cx1+cw,cy1+cw,8)
@@ -179,14 +245,14 @@ def draw_ground():
 
     # ── Approach road (vehicle lane) ─────────────────────────────────────────
     # Asphalt road strip in front of station
-    glColor3f(0.22,0.22,0.22)
+    set_color_lit(0.22,0.22,0.22)
     glBegin(GL_QUADS)
     glVertex3f(ROAD_X-120,-2000,0); glVertex3f(ROAD_X+120,-2000,0)
     glVertex3f(ROAD_X+120,-CANOPY_D-35,0); glVertex3f(ROAD_X-120,-CANOPY_D-35,0)
     glEnd()
 
     # Road edge lines
-    glColor3f(0.85,0.85,0.20)
+    set_color_lit(0.85,0.85,0.20)
     glBegin(GL_QUADS)
     glVertex3f(ROAD_X-118,-2000,1); glVertex3f(ROAD_X-112,-2000,1)
     glVertex3f(ROAD_X-112,-CANOPY_D-35,1); glVertex3f(ROAD_X-118,-CANOPY_D-35,1)
@@ -197,7 +263,7 @@ def draw_ground():
     glEnd()
 
     # Dashed centre line on approach road
-    glColor3f(0.85,0.85,0.10)
+    set_color_lit(0.85,0.85,0.10)
     for seg in range(10):
         ys = -2000+seg*180
         if ys > -CANOPY_D-35: break
@@ -207,14 +273,17 @@ def draw_ground():
         glEnd()
 
 def set_color_lit(r, g, b):
-    """Sets color adjusted by the current day/night light level."""
-    glColor3f(r * day_light, g * day_light, b * day_light)
+    """Sets color with a minimum floor so the station is visible at night."""
+    # Ensure objects never go below 40% brightness
+    ambient_min = 0.4 
+    brightness = max(ambient_min, day_light)
+    glColor3f(r * brightness, g * brightness, b * brightness)
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CANOPY
 # ═══════════════════════════════════════════════════════════════════════════════
 def draw_canopy():
     # Roof slab
-    glColor3f(0.09,0.12,0.44)
+    set_color_lit(0.09,0.12,0.44)
     draw_box(-CANOPY_W,-CANOPY_D,CANOPY_H, CANOPY_W,CANOPY_D,CANOPY_H+ROOF_T)
 
     # White perimeter trim
@@ -311,7 +380,7 @@ def draw_fuel_pump():
     glColor3f(0.94,0.84,0.0)
     draw_box(-65,-100,8, -60,-95,14)
     draw_box(60,-100,8, 65,-95,14)
-    glColor3f(1.00,0.76,0.03)
+    set_color_lit(1.00,0.76,0.03)
     draw_box(-36,-31,17, 36,31,172)
     glColor3f(0.88,0.66,0.02)
     draw_box(-36,-31,17, -34,31,172)
@@ -496,18 +565,7 @@ def draw_bike(color):
     glColor3f(1.0,0.95,0.60)
     glPushMatrix(); glTranslatef(0,62,52); gluSphere(quad,9,8,8); glPopMatrix()
 
-    # Rider (simple figure)
-    # Body
-    glColor3f(0.20,0.30,0.75)
-    draw_box(-14,-30,82, 14,10,128)
-    # Helmet
-    glColor3f(r,g,b)
-    glPushMatrix(); glTranslatef(0,-10,138)
-    gluSphere(quad,18,12,12); glPopMatrix()
-    # Arms
-    glColor3f(0.20,0.30,0.75)
-    draw_box(-22,-8,100, -14,22,112)
-    draw_box(14,-8,100,   22,22,112)
+    
 
 
 def draw_car(color):
@@ -636,20 +694,44 @@ def draw_truck(color):
 
 
 def draw_vehicle(v):
-    """Draw a vehicle dict at its current (x, y) position."""
-    glPushMatrix()
+    glPushMatrix() # Main vehicle push
     glTranslatef(v["x"], v["y"], 0)
-    if v["type"] == "bike":
+    
+    # 1. Draw the Vehicle Model
+    if v["type"] == "bike": 
         draw_bike(v["color"])
-    elif v["type"] == "car":
+    elif v["type"] == "car": 
         draw_car(v["color"])
-    else:
+    else: 
         draw_truck(v["color"])
+    
+    # 2. Draw the Rider/Driver
+    anim = v.get("exit_anim", 0.0)
+    
+    glPushMatrix() # Local push for the person
+    if anim < 0.1:
+        # --- DRIVER IS "INSIDE" ---
+        if v["type"] == "bike":
+            # Bikes are open, so we ALWAYS see the rider
+            glTranslatef(0, -10, 45) # Sit ON the bike
+            draw_human(is_standing=False)
+        else:
+            # For Cars and Trucks, we hide the driver while they are inside
+            # to prevent the head from clipping through the solid roof.
+            pass 
+    else:
+        # --- DRIVER IS OUTSIDE ---
+        # Draw for all vehicle types once they step out
+        side_offset = 120 * anim
+        glTranslatef(side_offset, -20 * anim, 0) # Move to ground level
+        draw_human(is_standing=True)
+    glPopMatrix() 
 
+    # 3. Draw the Fuel Bar
     if v["y"] > ROAD_Y_ENTRY + 300:
         draw_3d_fuel_bar(v.get("fuel_pct", 0.0), v["type"])
+        
     glPopMatrix()
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  QUEUE / SIMULATION UPDATE
@@ -672,7 +754,12 @@ def update_simulation(dt):
 
     if not vehicles:
         return
-
+    for v in vehicles:
+        # Handle smooth transition for getting out
+        if v.get("is_exited", False):
+            v["exit_anim"] = min(1.0, v["exit_anim"] + dt * 2.5) # Getting out
+        else:
+            v["exit_anim"] = max(0.0, v["exit_anim"] - dt * 2.5) # Getting back in
     # ── Front vehicle ────────────────────────────────────────────────────────
     front = vehicles[0]
     if front["state"] == "moving":
@@ -690,6 +777,14 @@ def update_simulation(dt):
         # Calculate percentage (0.0 to 1.0)
         front["fuel_pct"] = min(1.0, fuel_timer / FUEL_TIME) 
         
+        # Trigger exit animation
+        if fuel_timer > 0.5: # Wait half a second before getting out
+            front["exit_anim"] = min(1.0, front["exit_anim"] + dt * 2)
+            front["driver_outside"] = True
+        if fuel_timer >= FUEL_TIME:
+            front["state"] = "leaving"
+            front["driver_outside"] = False
+
         if fuel_timer >= FUEL_TIME:
             front["state"] = "leaving"
             front["fuel_pct"] = 1.0 # Ensure it stays full when leaving
@@ -796,9 +891,9 @@ def draw_3d_fuel_bar(percentage, vtype):
 
 def show_screen():
     # Dynamically calculate sky color (Light Blue during day, Dark Navy at night)
-    sky_r = 0.46 * day_light
-    sky_g = 0.68 * day_light
-    sky_b = 0.86 * day_light
+    sky_r = 0.02 if day_light < 0.3 else 0.46 * day_light
+    sky_g = 0.02 if day_light < 0.3 else 0.68 * day_light
+    sky_b = 0.10 if day_light < 0.3 else 0.86 * day_light
     glClearColor(sky_r, sky_g, sky_b, 1.0)
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -848,15 +943,18 @@ def show_screen():
                   color=(0.76,0.76,0.76))
     draw_text(12, 18, "Right-Click : Toggle POV     ESC : Quit",
               color=(0.76,0.76,0.76))
-
-    # ── Station name drawn as 3D-world billboard on canopy fascia ────────────
-    # This text appears physically ON the canopy sign panel in 3D space
-    # We draw it as a 2D overlay positioned to match the 3D panel
-    # (approximate screen position; works well in default 3rd-person view)
+    if vehicles:
+        front_v = vehicles[0]
+        if front_v["state"] in ["fuelling", "waiting"]:
+            action = "Enter" if front_v.get("is_exited") else "Exit"
+            draw_text(WIN_W - 420, 18, f"[E] : {action} Vehicle (at pump)", color=(1.0, 1.0, 0.0))
+   
     draw_text_large(WIN_W//2-178, 468,
                     "openGL Filling Station", color=(1.0, 0.92, 0.15))
+    
 
     glutSwapBuffers()
+    
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -909,6 +1007,12 @@ def keyboard_listener(key, x, y):
         day_light = min(1.0, day_light + 0.05)
     elif key == b'n' or key == b'N':
         day_light = max(0.1, day_light - 0.05) # Keep 0.1 so it's not pitch black
+    if key == b'e' or key == b'E':
+        if vehicles:
+            front = vehicles[0]
+            # Only allow getting out if the car is stopped at the pump
+            if front["state"] in ["fuelling", "waiting"]:
+                front["is_exited"] = not front["is_exited"] # Toggle state
     glutPostRedisplay()
 
 
