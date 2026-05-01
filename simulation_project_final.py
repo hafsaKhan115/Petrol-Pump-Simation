@@ -208,7 +208,7 @@ def draw_human(color=(0.84, 0.63, 0.43), is_standing=True):
 def draw_station_name_on_fascia():
     bz1 = CANOPY_H - 12
     bz2 = CANOPY_H + ROOF_T + 4
-    by_face = -CANOPY_D - 15 - 2 - 1
+    by_face = -CANOPY_D - 15 - 16 - 4  # in front of fascia front face at -431
 
     text   = "openGL Filling Station"
     n      = len(text)
@@ -220,6 +220,7 @@ def draw_station_name_on_fascia():
     text_z  = (bz1 + bz2) / 2.0 - char_h / 2.0
 
     glColor3f(1.0, 0.92, 0.15)
+    glEnable(GL_DEPTH_TEST)
 
     for ci, ch in enumerate(text):
         ox = start_x + ci * (char_w + gap)
@@ -402,40 +403,69 @@ def draw_3d_fuel_bar(percentage, vtype):
 # ═══════════════════════════════════════════════════════════════════════════════
 #  GROUND
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def get_sky_color():
+    """Returns unified sky color for both clear color and sky box."""
+    if day_light >= 0.5:
+        # Day sky - bright blue
+        return (0.45, 0.65, 0.85)
+    else:
+        # Night sky - dark indigo
+        night_factor = max(0.08, day_light * 0.25)
+        return (0.04 * night_factor, 0.05 * night_factor, 0.15 * night_factor)
+
+
 def draw_ground():
-    set_color_lit(0.18,0.18,0.18)
+    # Get unified sky color
+    sky_r, sky_g, sky_b = get_sky_color()
+    
+    # Sky box (large cube)
+    glColor3f(sky_r, sky_g, sky_b)
+    S = 5800
+    draw_box(-S, -S, -S, S, S, S)
+
+    # Ground plane with proper day/night lighting
+    set_color_lit(0.22, 0.22, 0.25)
     glBegin(GL_QUADS)
     glVertex3f(-2000,-2000,-2); glVertex3f(2000,-2000,-2)
     glVertex3f(2000,2000,-2);   glVertex3f(-2000,2000,-2)
     glEnd()
 
-    set_color_lit(0.70,0.70,0.70)
+    # Concrete apron with good visibility
+    apron_brightness = 0.75 if day_light > 0.5 else 0.45
+    glColor3f(apron_brightness, apron_brightness, apron_brightness)
     glBegin(GL_QUADS)
     glVertex3f(-CANOPY_W-35,-CANOPY_D-35,0); glVertex3f(CANOPY_W+35,-CANOPY_D-35,0)
     glVertex3f(CANOPY_W+35,CANOPY_D+35,0);   glVertex3f(-CANOPY_W-35,CANOPY_D+35,0)
     glEnd()
 
-    set_color_lit(0.76,0.76,0.76)
+    # Inner concrete
+    inner_brightness = 0.82 if day_light > 0.5 else 0.52
+    glColor3f(inner_brightness, inner_brightness, inner_brightness)
     glBegin(GL_QUADS)
     glVertex3f(-CANOPY_W+15,-CANOPY_D+15,0.5); glVertex3f(CANOPY_W-15,-CANOPY_D+15,0.5)
     glVertex3f(CANOPY_W-15,CANOPY_D-15,0.5);   glVertex3f(-CANOPY_W+15,CANOPY_D-15,0.5)
     glEnd()
 
     for ox,oy,ow,od in [(-40,-60,80,50),(60,80,70,45),(-80,20,60,40)]:
-        glColor3f(0.58,0.58,0.58)
+        glColor3f(0.60,0.60,0.62)
         glBegin(GL_QUADS)
         glVertex3f(ox,oy,1); glVertex3f(ox+ow,oy,1)
         glVertex3f(ox+ow,oy+od,1); glVertex3f(ox,oy+od,1)
         glEnd()
 
-    glColor3f(0.94,0.84,0.0)
+    # Yellow lines
+    line_color = (0.94, 0.84, 0.10) if day_light > 0.5 else (0.70, 0.60, 0.05)
+    glColor3f(*line_color)
     for lx in [-210,210]:
         glBegin(GL_QUADS)
         glVertex3f(lx-5,-CANOPY_D-35,2); glVertex3f(lx+5,-CANOPY_D-35,2)
         glVertex3f(lx+5,CANOPY_D+35,2);  glVertex3f(lx-5,CANOPY_D+35,2)
         glEnd()
 
-    set_color_lit(0.82,0.82,0.10)
+    # Road markings
+    road_mark = (0.85, 0.85, 0.15) if day_light > 0.5 else (0.55, 0.55, 0.05)
+    glColor3f(*road_mark)
     for seg in range(6):
         ys = -2000+seg*260
         glBegin(GL_QUADS)
@@ -443,20 +473,26 @@ def draw_ground():
         glVertex3f(6,ys+160,1); glVertex3f(-6,ys+160,1)
         glEnd()
 
-    set_color_lit(0.92,0.92,0.92)
+    # Curb edges
+    curb_bright = 0.95 if day_light > 0.5 else 0.55
+    glColor3f(curb_bright, curb_bright, curb_bright)
     cw=10; cy1=CANOPY_D+35; cx1=CANOPY_W+35
     draw_box(-cx1-cw,-cy1-cw,0, cx1+cw,-cy1,8)
     draw_box(-cx1-cw,cy1,0,     cx1+cw,cy1+cw,8)
     draw_box(-cx1-cw,-cy1-cw,0,-cx1,cy1+cw,8)
     draw_box(cx1,-cy1-cw,0,     cx1+cw,cy1+cw,8)
 
-    set_color_lit(0.22,0.22,0.22)
+    # Road asphalt
+    asphalt = (0.28, 0.28, 0.30) if day_light > 0.5 else (0.15, 0.15, 0.16)
+    glColor3f(*asphalt)
     glBegin(GL_QUADS)
     glVertex3f(ROAD_X-120,-2000,0); glVertex3f(ROAD_X+120,-2000,0)
     glVertex3f(ROAD_X+120,-CANOPY_D-35,0); glVertex3f(ROAD_X-120,-CANOPY_D-35,0)
     glEnd()
 
-    set_color_lit(0.85,0.85,0.20)
+    # Road side lines
+    side_line = (0.90, 0.90, 0.20) if day_light > 0.5 else (0.55, 0.55, 0.05)
+    glColor3f(*side_line)
     glBegin(GL_QUADS)
     glVertex3f(ROAD_X-118,-2000,1); glVertex3f(ROAD_X-112,-2000,1)
     glVertex3f(ROAD_X-112,-CANOPY_D-35,1); glVertex3f(ROAD_X-118,-CANOPY_D-35,1)
@@ -466,7 +502,9 @@ def draw_ground():
     glVertex3f(ROAD_X+118,-CANOPY_D-35,1); glVertex3f(ROAD_X+112,-CANOPY_D-35,1)
     glEnd()
 
-    set_color_lit(0.85,0.85,0.10)
+    # Dashed center line
+    dash_color = (0.92, 0.92, 0.15) if day_light > 0.5 else (0.60, 0.60, 0.05)
+    glColor3f(*dash_color)
     for seg in range(10):
         ys = -2000+seg*180
         if ys > -CANOPY_D-35: break
@@ -494,6 +532,7 @@ def draw_canopy():
     draw_box(-320,-CANOPY_D-t-2, CANOPY_H-12,
               320,-CANOPY_D-t-16, CANOPY_H+ROOF_T+4)
 
+    # Sign fascia
     glColor3f(1.0, 0.84, 0.0)
     bx1,bx2 = -320, 320
     by1,by2 = -CANOPY_D-t-2, -CANOPY_D-t-16
@@ -503,10 +542,12 @@ def draw_canopy():
     draw_box(bx1,by1,bz1,   bx1+4,by2,bz2)
     draw_box(bx2-4,by1,bz1, bx2,by2,bz2)
 
+    # Ceiling lights
     set_color_lit(0.96,0.96,0.88)
     for ys in [-280,-140,0,140,280]:
         draw_box(-CANOPY_W+55,ys-10,CANOPY_H-5, CANOPY_W-55,ys+10,CANOPY_H)
 
+    # Pillars
     pw=22
     pillar_locs=[(-460,-345),(460,-345),(-460,345),(460,345),(-460,0),(460,0)]
     for px,py in pillar_locs:
@@ -517,6 +558,7 @@ def draw_canopy():
         glColor3f(0.60,0.60,0.60)
         draw_box(px-pw-4,py-pw-4,0, px+pw+4,py+pw+4,12)
 
+    # Sign board
     glColor3f(1.0,0.52,0.0)
     draw_box(-CANOPY_W+80,-CANOPY_D+8,CANOPY_H-42, CANOPY_W-80,-CANOPY_D+24,CANOPY_H-26)
     glColor3f(1.0,1.0,1.0)
@@ -635,7 +677,7 @@ def draw_fuel_pump():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  SELLER  –  FIX 1 (black trousers) + FIX 2 (correct arm raises for fueling)
+#  SELLER
 # ═══════════════════════════════════════════════════════════════════════════════
 def draw_seller(fueling=False, front_vehicle=None):
     quad=gluNewQuadric()
@@ -671,25 +713,10 @@ def draw_seller(fueling=False, front_vehicle=None):
     draw_box(-23,-15,82, 23,-17,91)
     draw_box(-23,15,82,  23,17,91)
 
-    # Get vehicle tank position to know which arm to raise
-    vehicle_is_left = True  # Default: tank on left side (negative X)
-    if front_vehicle:
-        vx, vy = front_vehicle["x"], front_vehicle["y"]
-        if front_vehicle["type"] == "car":
-            # Car tank is on left side (negative X offset)
-            vehicle_is_left = True
-        elif front_vehicle["type"] == "bike":
-            # Bike tank is centered, but we choose left arm
-            vehicle_is_left = True
-        else:  # truck
-            # Truck tank is on left side
-            vehicle_is_left = True
-
-    # Arms - Raise the arm that is toward the vehicle (left arm for cars/trucks, right arm for right-side filler)
+    # Arms
     glColor3f(0.84,0.63,0.43)
     if fueling and front_vehicle is not None:
-        # Raise left arm (toward vehicle) and keep right arm down/low
-        # Left arm (toward vehicle) - raised up and extended
+        # Left arm raised for fueling
         glPushMatrix(); glTranslatef(-34,0,95)
         glRotatef(90, 0,1,0)
         glRotatef(-18, 1,0,0)
@@ -704,7 +731,7 @@ def draw_seller(fueling=False, front_vehicle=None):
         glColor3f(0.18,0.18,0.22)
         draw_box(-122,-21,68, -111,-14,78)
 
-        # Right arm - lowered (not used for fueling)
+        # Right arm lowered
         glColor3f(0.84,0.63,0.43)
         glPushMatrix(); glTranslatef(34,0,95)
         glRotatef(95,0,1,0); glRotatef(-30,1,0,0)
@@ -712,7 +739,7 @@ def draw_seller(fueling=False, front_vehicle=None):
         glPushMatrix(); glTranslatef(96,-28,80)
         gluSphere(quad,9,10,10); glPopMatrix()
     else:
-        # Both arms at sides when not fueling
+        # Both arms at sides
         glPushMatrix(); glTranslatef(-34,0,94); glRotatef(160,1,0,0)
         draw_manual_solid_cylinder(8,7,50,14,lw=2.0); glPopMatrix()
         glPushMatrix(); glTranslatef(-34,18,54)
@@ -887,7 +914,7 @@ def draw_vehicle(v):
     else:
         draw_truck(v["color"])
     
-    # Draw the driver (from second file)
+    # Draw the driver
     anim = v.get("exit_anim", 0.0)
     
     glPushMatrix()
@@ -1162,10 +1189,12 @@ def setup_camera():
 #  DISPLAY
 # ═══════════════════════════════════════════════════════════════════════════════
 def show_screen():
-    sky_r = 0.02 if day_light < 0.3 else 0.46 * day_light
-    sky_g = 0.02 if day_light < 0.3 else 0.68 * day_light
-    sky_b = 0.10 if day_light < 0.3 else 0.86 * day_light
-    glClearColor(sky_r, sky_g, sky_b, 1.0) 
+    # Get unified sky color
+    sky_r, sky_g, sky_b = get_sky_color()
+    
+    # Use the same sky color for clear color
+    glClearColor(sky_r, sky_g, sky_b, 1.0)
+    
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, WIN_W, WIN_H)
@@ -1189,11 +1218,6 @@ def show_screen():
         draw_vehicle(v)
 
     # ── HUD ───────────────────────────────────────────────────────────────────
-    # Show fuel bar percentage for front vehicle
-    if vehicles and front_veh:
-        pct = front_veh.get("fuel_pct", 0.0)
-        bar_x, bar_y = 12, WIN_H - 100
-    
     mode = "First-Person (Seller's POV)" if is_first_person else "Third-Person (Overview)"
     draw_text(12, WIN_H-28, "View : "+mode, color=(0.88,1.0,0.88))
 
@@ -1392,11 +1416,6 @@ def keyboard_listener(key, x, y):
     elif key in (b'o', b'O'):
         _do_disconnect()
 
-    elif key in (b'd', b'D'):
-        if not vehicles or not front_veh:
-            _do_disconnect()
-        # 'd' was already handled for day/night above
-
     glutPostRedisplay()
 
 
@@ -1416,7 +1435,6 @@ def main():
     glutCreateWindow(b"openGL Filling Station")
 
     glEnable(GL_DEPTH_TEST)
-    glClearColor(0.46, 0.68, 0.86, 1.0)
 
     glutDisplayFunc(show_screen)
     glutSpecialFunc(special_key)
