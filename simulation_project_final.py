@@ -1152,11 +1152,6 @@ def setup_camera():
                       eye_z + lz * 400.0,
                       0, 0, 1)
     else:
-        # Sky color changes with day_light
-        sky_r = 0.02 if day_light < 0.3 else 0.46 * day_light
-        sky_g = 0.02 if day_light < 0.3 else 0.68 * day_light
-        sky_b = 0.10 if day_light < 0.3 else 0.86 * day_light
-       
         
         cx = cam_radius * math.sin(cam_angle)
         cy = cam_radius * math.cos(cam_angle)
@@ -1167,6 +1162,10 @@ def setup_camera():
 #  DISPLAY
 # ═══════════════════════════════════════════════════════════════════════════════
 def show_screen():
+    sky_r = 0.02 if day_light < 0.3 else 0.46 * day_light
+    sky_g = 0.02 if day_light < 0.3 else 0.68 * day_light
+    sky_b = 0.10 if day_light < 0.3 else 0.86 * day_light
+    glClearColor(sky_r, sky_g, sky_b, 1.0) 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glLoadIdentity()
     glViewport(0, 0, WIN_W, WIN_H)
