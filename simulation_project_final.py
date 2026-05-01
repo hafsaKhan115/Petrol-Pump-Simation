@@ -1193,7 +1193,6 @@ def show_screen():
     if vehicles and front_veh:
         pct = front_veh.get("fuel_pct", 0.0)
         bar_x, bar_y = 12, WIN_H - 100
-        draw_text(bar_x, bar_y + 15, f"Fueling: {int(pct*100)}%", color=(1, 1, 1))
     
     mode = "First-Person (Seller's POV)" if is_first_person else "Third-Person (Overview)"
     draw_text(12, WIN_H-28, "View : "+mode, color=(0.88,1.0,0.88))
